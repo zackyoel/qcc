@@ -18,7 +18,8 @@ void error(char *Fmt, ...) {
 }
 
 // 输出错误出现的位置，并退出
-static void verrorAt(const char *context, const int col, char *Fmt, va_list VA) {
+static void verrorAt(const char *context, const int col, char *Fmt,
+                     va_list VA) {
   // 先输出源信息
   fprintf(stderr, "%s\n", context);
 
@@ -31,7 +32,7 @@ static void verrorAt(const char *context, const int col, char *Fmt, va_list VA) 
 }
 
 // 词法分析出错
-void errorAt(const Lexer* lex, char *Fmt, ...) {
+void errorAt(const Lexer *lex, char *Fmt, ...) {
   va_list VA;
   va_start(VA, Fmt);
   verrorAt(lex->curLinePtr, lex->curColNum, Fmt, VA);

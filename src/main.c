@@ -20,7 +20,7 @@ int main(int args, char **argv) {
   Function *func = parse(parser);
 
   //目标代码生成
-  Codegener* codegener=newCodegener(func);
+  Codegener *codegener = newCodegener(func);
   codegen(codegener);
 
   return 0;

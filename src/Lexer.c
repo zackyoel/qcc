@@ -118,22 +118,6 @@ static unsigned int varLen(const char *str) {
   return 0;
 }
 
-static void convert(Token *tok) {
-  char *keywords[] = {"if",       "else",    "goto",   "switch", "case",
-                      "default",  "for",     "do",     "while",  "break",
-                      "continue", "return",  "sizeof", "void",   "char",
-                      "short",    "int",     "long",   "float",  "double",
-                      "union",    "enum",    "struct", "typdef", "auto",
-                      "extern",   "const",   "static", "signed", "unsigned",
-                      "register", "volatile"};
-
-  for (int i = 0; i < 32; i++) {
-    if (equal(tok, keywords[i])) {
-      tok->kind = KEYWORD;
-    }
-  }
-}
-
 /**
  * @brief 检查字符串是否为16进制开头标志 [ "0x" || "0X" ]
  *

@@ -5,11 +5,12 @@ static Obj *LOCALOBJS;
 // Rest: 分析后剩余词法单元队列指针存放位置
 // Token: 要分析的词法单元
 
-// program = stmt*
-// stmt = "return" expr ";" | exprStmt
-// exprStmt = expr ";"
+// program = "{" block  //限制程序必须被 { } 包起来
+// block = stmt* "}"
+// stmt = "return" expr ";" | "{" block | exprStmt
+// exprStmt = expr? ";"
 // expr = assign
-// assign = equality ( = assign )?
+// assign = equality ( "=" assign )?
 // equality = relational ("==" relational | "!=" relational)*
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // shift = add ("<<" add | ">>" add)*
@@ -17,6 +18,7 @@ static Obj *LOCALOBJS;
 // mul = unary ("*" unary | "/" unary | "%" unary)*
 // unary = ("+" | "-"| "*" | "&") unary | primary
 // primary = "(" expr ")" | num | id
+static Node *block(Token **Rest, Token *Tok);
 static Node *stmt(Token **Rest, Token *Tok);
 static Node *exprStmt(Token **Rest, Token *Tok);
 static Node *expr(Token **Rest, Token *Tok);
@@ -121,13 +123,37 @@ static Obj *findVar(const Token *Tok) {
   return NULL;
 }
 
+// 解析组合语句
+// block = stmt* "}"
+static Node *block(Token **Rest, Token *Tok) {
+
+  // 建立 stmt 队列
+  Node *headNode = calloc(1, sizeof(Node));
+  Node *curNode = headNode;
+  while (!equal(Tok, "}")) {
+    curNode->Next = stmt(&Tok, Tok);
+    curNode = curNode->Next;
+  }
+  // LHS 和 Body 是 union 结构，所以赋值给 LHS 同时也是赋值给 Body
+  Node *node = newUnaryNode(BLOCK, headNode->Next);
+  free(headNode);
+
+  *Rest = skip(Tok, "}");
+  return node;
+}
+
 // 解析语句
-// stmt = "return" expr ";" | exprStmt
+// stmt = "return" expr ";" | "{" block | exprStmt
 static Node *stmt(Token **Rest, Token *Tok) {
   // "return" expr ";"
   if (equal(Tok, "return")) {
     Node *node = newUnaryNode(RETURN, expr(&Tok, Tok->nextTok));
     *Rest = skip(Tok, ";");
+    return node;
+  }
+  // "{" block
+  if (equal(Tok, "{")) {
+    Node *node = newUnaryNode(BLOCK, block(Rest, Tok->nextTok));
     return node;
   }
 
@@ -136,8 +162,14 @@ static Node *stmt(Token **Rest, Token *Tok) {
 }
 
 // 解析表达式语句
-// exprStmt = expr ";"
+// exprStmt = expr? ";"
 static Node *exprStmt(Token **Rest, Token *Tok) {
+  // ";"
+  if (equal(Tok, ";")) {
+    *Rest = skip(Tok, ";");
+    return newNode(BLOCK);
+  }
+  // expr? ";"
   Node *node = newUnaryNode(EXPR_STMT, expr(&Tok, Tok));
   *Rest = skip(Tok, ";");
   return node;
@@ -151,18 +183,16 @@ static Node *expr(Token **Rest, Token *Tok) {
 }
 
 // 解析赋值表达式
-// assign = equality (= assign)?
+// assign = equality ("=" assign)?
 static Node *assign(Token **Rest, Token *Tok) {
   // equality
   Node *node = equality(&Tok, Tok);
-  while (true) {
-    if (equal(Tok, "=")) {
-      node = newBinaryNode(ASSIGN, node, assign(&Tok, Tok->nextTok));
-      continue;
-    }
-    *Rest = Tok;
-    return node;
+
+  if (equal(Tok, "=")) {
+    node = newBinaryNode(ASSIGN, node, assign(&Tok, Tok->nextTok));
   }
+  *Rest = Tok;
+  return node;
 }
 
 // 解析相等性
@@ -316,26 +346,6 @@ static Node *primary(Token **Rest, Token *Tok) {
   return NULL;
 }
 
-// 对齐到Align的整数倍
-static int alignTo(int N, int Align) {
-  // (0,Align]返回Align
-  return (N + Align - 1) / Align * Align;
-}
-
-// 根据变量的链表计算出偏移量
-static void assignLVarOffsets(Function *Prog) {
-  int Offset = 0;
-  // 读取所有变量
-  for (Obj *Var = Prog->localObjs; Var; Var = Var->Next) {
-    // 每个变量分配8字节
-    Offset += 8;
-    // 为每个变量赋一个偏移量，或者说是栈中地址
-    Var->Offset = -Offset;
-  }
-  // 将栈对齐到16字节
-  Prog->stackSize = alignTo(Offset, 16);
-}
-
 Parser *newParser(Token *tokList) {
   Parser *paser = calloc(1, sizeof(Parser));
   paser->tokList = tokList;
@@ -344,19 +354,14 @@ Parser *newParser(Token *tokList) {
 
 Function *parse(Parser *parser) {
 
-  Function *prog = calloc(1, sizeof(Function));
-  prog->Body = calloc(1, sizeof(Node));
-  Node *curNode = prog->Body;
+  // "{" block
   Token *curTok = parser->tokList;
+  curTok = skip(curTok, "{");
 
-  while (curTok->kind) {
-    curNode->Next = stmt(&curTok, curTok);
-    curNode = curNode->Next;
-  }
-
-  prog->Body = prog->Body->Next;
+  Function *prog = calloc(1, sizeof(Function));
+  prog->Body = block(&curTok, curTok);
   prog->localObjs = LOCALOBJS;
-  assignLVarOffsets(prog);
+
   parser->Func = prog;
 
   return parser->Func;

@@ -33,11 +33,12 @@ static void pop(char *reg) {
 static void genAddr(Node *node) {
   if (node->Kind == VAR) {
     // 偏移量是相对于fp的
-    printf("    # 令 a0 = 变量地址\n");
+    printf("    # 令 a0 = %s 的地址\n", node->Var->Name);
     printf("    addi a0, fp, %ld\n", node->Var->Offset);
     return;
   }
-  error("not an lvalue");
+
+  error("Not Assignable\n");
 }
 
 /**
@@ -47,17 +48,10 @@ static void genAddr(Node *node) {
  */
 static void genExpr(Node *node) {
   switch (node->Kind) {
-  // 表达式语句节点
-  case EXPR_STMT:
-    // 生成子表达式序列
-    genExpr(node->LHS);
-    if (node->Next) {
-      genExpr(node->Next);
-    }
-    return;
+
   // 常数节点
   case NUM:
-    printf("    # 将立即数写入 a0\n");
+    printf("    # 将立即数 %d 写入 a0\n", node->Val);
     printf("    li a0, %d\n", node->Val);
     return;
   // 变量节点
@@ -119,28 +113,28 @@ static void genExpr(Node *node) {
     printf("    # 令 a0 = a0 ^ a1\n");
     printf("    xor a0, a0, a1\n");
     if (node->Kind == EQ) {
-      printf("    # 比较 a0 是否等于 0结果放入 a0\n");
+      printf("    # 令 a0 = (a0 == 0)\n");
       printf("    seqz a0, a0\n");
     } else {
-      printf("    # 比较 a0 是否不等于 0 结果放入 a0\n");
+      printf("    # 令 a0 = (a0 != 0)\n");
       printf("    snez a0, a0\n");
     }
     return;
   case LT:
-    printf("    # 比较 a0 小于 a1 结果放入 a0\n");
+    printf("    # 令 a0 = a0 < a1\n");
     printf("    slt a0, a0, a1\n");
     return;
   case GT:
-    printf("    # 比较 a0 大于 a1 结果放入 a0\n");
+    printf("    # 令 a0 = a0 > a1\n");
     printf("    slt a0, a1, a0\n");
     return;
   case LE:
-    printf("    # 比较 a0 小于等于 a1 结果放入 a0\n");
+    printf("    # 令 a0 = a0 <= a1\n");
     printf("    slt a0, a1, a0\n");
     printf("    xori a0, a0, 1\n");
     return;
   case GE:
-    printf("    # 比较 a0 大于等于 a1 结果放入 a0\n");
+    printf("    # 令 a0 = a0 >= a1\n");
     printf("    slt a0, a0, a1\n");
     printf("    xori a0, a0, 1\n");
     return;
@@ -157,10 +151,20 @@ static void genExpr(Node *node) {
  */
 static void genStmt(Node *node) {
   switch (node->Kind) {
+    // 表达式节点
   case EXPR_STMT:
     genExpr(node->LHS);
     return;
+    // 代码块节点
+  case BLOCK:
+    // 依次生成代码块中的语句
+    for (Node *tmpNode = node->Body; tmpNode; tmpNode = tmpNode->Next) {
+      genStmt(tmpNode);
+    }
+    return;
+    // 返回节点
   case RETURN:
+    // 生成返回值->a0
     genExpr(node->LHS);
     printf("    # 函数返回\n");
     printf("    j .L.return\n");
@@ -183,6 +187,26 @@ Codegener *newCodegener(Function *func) {
   return codegener;
 }
 
+// 对齐到Align的整数倍
+static int alignTo(int N, int Align) {
+  // (0,Align]返回Align
+  return (N + Align - 1) / Align * Align;
+}
+
+// 根据变量的链表计算出偏移量
+static void assignLVarOffsets(Function *Prog) {
+  int Offset = 0;
+  // 读取所有变量
+  for (Obj *Var = Prog->localObjs; Var; Var = Var->Next) {
+    // 每个变量分配8字节
+    Offset += 8;
+    // 为每个变量赋一个偏移量，或者说是栈中地址
+    Var->Offset = -Offset;
+  }
+  // 将栈对齐到16字节
+  Prog->stackSize = alignTo(Offset, 16);
+}
+
 /**
  * @brief 汇编代码生成入口
  *
@@ -194,17 +218,19 @@ void codegen(Codegener *codegener) {
 
   // 栈布局
   //-------------------------------//
-  //          origin_fp               <-origin_sp
+  //  origin_temp_Stack_Top_Elemt     <-origin_sp
   //-------------------------------//
-  //          var1_addr               <-fp
+  //          origin_fp
   //-------------------------------//
-  //          var2_addr
+  //       local_var1_addr            <-fp
+  //-------------------------------//
+  //       local_var2_addr
   //-------------------------------//
   //             ...
   //-------------------------------//
-  //          varn_addr
+  //       local_varN_addr
   //-------------------------------//
-  //          exprStack               <-sp = origin_sp - 8 - StackSize
+  //  now_temp_Stack_Botton_Elemt     <-sp = origin_sp - 8 - StackSize
   //-------------------------------//
 
   // Prologue, 前言
@@ -212,20 +238,21 @@ void codegen(Codegener *codegener) {
   printf("    # fp 压栈\n");
   printf("    addi sp, sp, -8\n");
   printf("    sd fp, 0(sp)\n");
+
   // 将sp写入fp
   printf("    # 生成变量栈区\n");
   printf("    mv fp, sp\n");
-
-  Function *Prog = codegener->func;
+  // 计算本地变量栈空间
+  assignLVarOffsets(codegener->func);
   // 偏移量为实际变量所用的栈大小
-  printf("    addi sp, sp, -%d\n", Prog->stackSize);
+  printf("    addi sp, sp, -%d\n", codegener->func->stackSize);
 
-  for (Node *node = Prog->Body; node; node = node->Next) {
-    genStmt(node);
-    assert(Depth == 0);
-  }
+  // 根节点 是一个 代码块 节点
+  genStmt(codegener->func->Body);
 
   // Epilogue，后语
+  // 恢复执行前环境
+
   // 将fp的值改写回sp
   printf(".L.return:\n");
   printf("    # 清理变量栈区\n");

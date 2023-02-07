@@ -1,5 +1,12 @@
 #include "Compiler.h"
 
+static char *keywords[] = {
+    "if",     "else",     "goto",     "switch",   "case",   "default", "for",
+    "do",     "while",    "break",    "continue", "return", "sizeof",  "void",
+    "char",   "short",    "int",      "long",     "float",  "double",  "union",
+    "enum",   "struct",   "typdef",   "auto",     "extern", "const",   "static",
+    "signed", "unsigned", "register", "volatile"};
+
 Token *newToken(TokenKind kind, const char *text, const char *fpath,
                 const char *context, int row, int col) {
   //分配1个Token空间
@@ -29,4 +36,12 @@ Token *skip(Token *Tok, char *Str) {
     errorTok(Tok, "expect '%s'", Str);
   }
   return Tok->nextTok;
+}
+
+void convert(Token *tok) {
+  for (int i = 0; i < 32; i++) {
+    if (equal(tok, keywords[i])) {
+      tok->kind = KEYWORD;
+    }
+  }
 }

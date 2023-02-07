@@ -32,7 +32,8 @@
 | [4] | 支持 ";" 分割表达式 | finish |
 | [5] | 支持多字母本地变量 | finish |
 | [6] | 支持 return 语句 | finish |
-| [7] | 支持代码块和空语句 | coding |
+| [7] | 支持代码块和空语句 | finish |
+| [8] | 支持 if、for、while 语句 | coding |
 
 
 ## 学习&&使用方法

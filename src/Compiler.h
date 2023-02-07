@@ -20,11 +20,11 @@
 typedef enum {
   EOF_FLAG, // EOF
 
-  //符号
+  // 符号
   PUNCT, // 各类标点符号
 
-  //关键字
-  KEYWORD,
+  // 关键字
+  KEYWORD, // 各种关键词
 
   // 值
   VAL_CHAR,    //字符值
@@ -92,6 +92,13 @@ bool equal(const Token *Tok, const char *Str);
  */
 Token *skip(Token *Tok, char *Str);
 
+/**
+ * @brief 检查该词法单元是否为KEYWORD，并转换
+ *
+ * @param Tok
+ */
+void convert(Token *Tok);
+
 /************************Lexer************************/
 
 // 词法分析器结构体
@@ -128,6 +135,7 @@ Token *analysis(Lexer *lexer);
 
 // AST节点种类
 typedef enum {
+  BLOCK,     // 代码块
   EXPR_STMT, // expr ";"
   NUM,       // 常数
   VAR,       // 对象变量
@@ -262,6 +270,7 @@ struct Node {
     int Val;   // 值
     Node *LHS; // 左子树
     Obj *Var;  //变量
+    Node *Body;
   };
   union {
     Node *RHS;  // 右子树
