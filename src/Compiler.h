@@ -23,45 +23,8 @@ typedef enum {
   //符号
   PUNCT, // 各类标点符号
 
-  // 关键字
-
-  // 分支相关
-  IF,      // if
-  ELSE,    // else
-  GOTO,    // goto
-  SWITCH,  // switch
-  CASE,    // case
-  DEFAULT, // default
-
-  // 循环相关
-  FOR,      // for
-  DO,       // do
-  WHILE,    // while
-  BREAK,    // break
-  CONTINUE, // continue
-
-  RETURN, // return
-  SIZEOF, // sizeof
-
-  // 基本数据类型
-  VOID,   // void
-  CHAR,   // char
-  SHORT,  // short
-  INT,    // int
-  LONG,   // long
-  FLOAT,  // float
-  DOUBLE, // double
-
-  // 创建新类型
-  UNION,  // union
-  ENUM,   // enum
-  STRUCT, // struct
-
-  // 附加声明
-  AUTO,   // auto
-  EXTERN, // extern
-  CONST,  // const
-  STATIC, // static
+  //关键字
+  KEYWORD,
 
   // 值
   VAL_CHAR,    //字符值
@@ -168,6 +131,51 @@ typedef enum {
   EXPR_STMT, // expr ";"
   NUM,       // 常数
   VAR,       // 对象变量
+
+  // 关键字节点
+
+  // 分支相关
+  IF,      // if
+  ELSE,    // else
+  GOTO,    // goto
+  SWITCH,  // switch
+  CASE,    // case
+  DEFAULT, // default
+
+  // 循环相关
+  FOR,      // for
+  DO,       // do
+  WHILE,    // while
+  BREAK,    // break
+  CONTINUE, // continue
+
+  RETURN, // return
+  SIZEOF, // sizeof
+
+  // 基本数据类型
+  VOID,   // void
+  CHAR,   // char
+  SHORT,  // short
+  INT,    // int
+  LONG,   // long
+  FLOAT,  // float
+  DOUBLE, // double
+
+  // 创建新类型
+  UNION,  // union
+  ENUM,   // enum
+  STRUCT, // struct
+  TYPDEF, // typdef
+
+  // 附加声明
+  AUTO,     // auto
+  EXTERN,   // extern
+  CONST,    // const
+  STATIC,   // static
+  SIGNED,   // signed
+  UNSIGNED, // unsigned
+  REGISTER, // register
+  VOLATILE, // volatile
 
   //运算符节点 优先级：低->高
   COMMA, // , 逗号
@@ -289,7 +297,7 @@ typedef struct Codegener Codegener;
 
 struct Codegener {
   int stackDepth; //压栈深度
-  Function *func;  //语法分析树根节点
+  Function *func; //语法分析树根节点
 };
 Codegener *newCodegener(Function *func);
 void codegen(Codegener *codegener);

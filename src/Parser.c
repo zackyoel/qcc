@@ -6,7 +6,7 @@ static Obj *LOCALOBJS;
 // Token: 要分析的词法单元
 
 // program = stmt*
-// stmt = exprStmt
+// stmt = "return" expr ";" | exprStmt
 // exprStmt = expr ";"
 // expr = assign
 // assign = equality ( = assign )?
@@ -17,7 +17,6 @@ static Obj *LOCALOBJS;
 // mul = unary ("*" unary | "/" unary | "%" unary)*
 // unary = ("+" | "-"| "*" | "&") unary | primary
 // primary = "(" expr ")" | num | id
-
 static Node *stmt(Token **Rest, Token *Tok);
 static Node *exprStmt(Token **Rest, Token *Tok);
 static Node *expr(Token **Rest, Token *Tok);
@@ -123,8 +122,18 @@ static Obj *findVar(const Token *Tok) {
 }
 
 // 解析语句
-// stmt = exprStmt
-static Node *stmt(Token **Rest, Token *Tok) { return exprStmt(Rest, Tok); }
+// stmt = "return" expr ";" | exprStmt
+static Node *stmt(Token **Rest, Token *Tok) {
+  // "return" expr ";"
+  if (equal(Tok, "return")) {
+    Node *node = newUnaryNode(RETURN, expr(&Tok, Tok->nextTok));
+    *Rest = skip(Tok, ";");
+    return node;
+  }
+
+  // exprStmt
+  return exprStmt(Rest, Tok);
+}
 
 // 解析表达式语句
 // exprStmt = expr ";"
@@ -142,6 +151,7 @@ static Node *expr(Token **Rest, Token *Tok) {
 }
 
 // 解析赋值表达式
+// assign = equality (= assign)?
 static Node *assign(Token **Rest, Token *Tok) {
   // equality
   Node *node = equality(&Tok, Tok);
@@ -337,14 +347,14 @@ Function *parse(Parser *parser) {
   Function *prog = calloc(1, sizeof(Function));
   prog->Body = calloc(1, sizeof(Node));
   Node *curNode = prog->Body;
-  Token *curTok =parser->tokList;
+  Token *curTok = parser->tokList;
 
-  while(curTok->kind) {
-    curNode->Next = exprStmt(&curTok, curTok);
+  while (curTok->kind) {
+    curNode->Next = stmt(&curTok, curTok);
     curNode = curNode->Next;
   }
 
-  prog->Body =prog->Body->Next;
+  prog->Body = prog->Body->Next;
   prog->localObjs = LOCALOBJS;
   assignLVarOffsets(prog);
   parser->Func = prog;

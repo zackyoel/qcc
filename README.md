@@ -31,7 +31,8 @@
 | [3] | 修改test.sh文件：增加cmake构建命令、增加注释、改进易用性 | finish |
 | [4] | 支持 ";" 分割表达式 | finish |
 | [5] | 支持多字母本地变量 | finish |
-| [6] | 支持 return 语句 | coding |
+| [6] | 支持 return 语句 | finish |
+| [7] | 支持代码块和空语句 | coding |
 
 
 ## 学习&&使用方法

@@ -156,16 +156,24 @@ static void genExpr(Node *node) {
  * @param Nd 待生成节点
  */
 static void genStmt(Node *node) {
-  if (node->Kind == EXPR_STMT) {
+  switch (node->Kind) {
+  case EXPR_STMT:
     genExpr(node->LHS);
     return;
+  case RETURN:
+    genExpr(node->LHS);
+    printf("    # 函数返回\n");
+    printf("    j .L.return\n");
+    return;
+  default:
+    break;
   }
   error("invalid statement");
 }
 
 /**
  * @brief 产生新的汇编生成器
- * 
+ *
  * @param func 函数序列指针
  * @return Codegener* 新汇编生成器指针
  */
@@ -177,7 +185,7 @@ Codegener *newCodegener(Function *func) {
 
 /**
  * @brief 汇编代码生成入口
- * 
+ *
  * @param codegener 汇编生成器指针
  */
 void codegen(Codegener *codegener) {
@@ -219,6 +227,7 @@ void codegen(Codegener *codegener) {
 
   // Epilogue，后语
   // 将fp的值改写回sp
+  printf(".L.return:\n");
   printf("    # 清理变量栈区\n");
   printf("    mv sp, fp\n");
   // 将最早fp保存的值弹栈，恢复fp。

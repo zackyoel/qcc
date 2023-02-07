@@ -99,8 +99,6 @@ static unsigned int punctLen(const char *str) {
   return ispunct(*str) ? 1 : 0;
 }
 
-
-
 /**
  * @brief 获取变量名长度 [a-zA-Z_][a-zA-Z0-9_]*
  *
@@ -109,15 +107,31 @@ static unsigned int punctLen(const char *str) {
  */
 static unsigned int varLen(const char *str) {
   // [a-zA-Z_]
-  if (isalpha(*str)||*str=='_') {
+  if (isalpha(*str) || *str == '_') {
     const char *tempChar = str;
     // [a-zA-Z0-9_]*
-    while (isalnum(*tempChar) || *tempChar=='_') {
+    while (isalnum(*tempChar) || *tempChar == '_') {
       tempChar++;
     }
     return tempChar - str;
   }
   return 0;
+}
+
+static void convert(Token *tok) {
+  char *keywords[] = {"if",       "else",    "goto",   "switch", "case",
+                      "default",  "for",     "do",     "while",  "break",
+                      "continue", "return",  "sizeof", "void",   "char",
+                      "short",    "int",     "long",   "float",  "double",
+                      "union",    "enum",    "struct", "typdef", "auto",
+                      "extern",   "const",   "static", "signed", "unsigned",
+                      "register", "volatile"};
+
+  for (int i = 0; i < 32; i++) {
+    if (equal(tok, keywords[i])) {
+      tok->kind = KEYWORD;
+    }
+  }
 }
 
 /**
@@ -151,8 +165,8 @@ Lexer *newLexer(const char *fpath) {
   Lexer *lexer = calloc(1, sizeof(Lexer));
 
   // 初始化词法分析器参数
-  //lexer->fText = readFile(fpath); // 测试时请注释此条
-  lexer->fText = fpath;             // 测试时请使用此条
+  // lexer->fText = readFile(fpath); // 测试时请注释此条
+  lexer->fText = fpath; // 测试时请使用此条
   lexer->fPath = fpath;
   lexer->tokListHead = calloc(1, sizeof(Token));
   lexer->curRowNum = 1;
@@ -222,8 +236,12 @@ Token *analysis(Lexer *lexer) {
       CurTok->nextTok =
           newToken(ID, lexer->curReadPtr, lexer->fPath, lexer->curLinePtr,
                    lexer->curRowNum, lexer->curColNum);
-      CurTok=CurTok->nextTok;
+      CurTok = CurTok->nextTok;
       CurTok->len = VarLen;
+
+      // 检查转换关键字Token
+      convert(CurTok);
+
       //更新词法分析器读取位置
       lexer->curColNum += CurTok->len;
       lexer->curReadPtr += CurTok->len;
