@@ -138,10 +138,12 @@ static void genExpr(Node *node) {
     printf("    # 比较 a0 小于等于 a1 结果放入 a0\n");
     printf("    slt a0, a1, a0\n");
     printf("    xori a0, a0, 1\n");
+    return;
   case GE:
     printf("    # 比较 a0 大于等于 a1 结果放入 a0\n");
     printf("    slt a0, a0, a1\n");
     printf("    xori a0, a0, 1\n");
+    return;
   default:
     break;
   }

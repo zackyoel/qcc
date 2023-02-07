@@ -190,7 +190,7 @@ static Node *relational(Token **Rest, Token *Tok) {
     }
     // "<=" add
     if (equal(Tok, "<=")) {
-      node = newBinaryNode(LT, node, add(&Tok, Tok->nextTok));
+      node = newBinaryNode(LE, node, add(&Tok, Tok->nextTok));
       continue;
     }
     // ">" add
