@@ -166,9 +166,9 @@ Token *analysis(Lexer *lexer);
 // AST节点种类
 typedef enum {
   NUM, // 常数
+  EXPR_STMT,  // expr ";"
 
-  //优先级 低->高
-  
+  //运算符节点 优先级：低->高
   COMMA, // , 逗号
 
   ASSIGN,     // =  赋值
@@ -226,6 +226,7 @@ typedef enum {
   ARROW,       // -> 箭头
   DOT,         // .  点
 
+
 } NodeKind;
 
 // AST语法树节点结构体
@@ -234,7 +235,10 @@ struct Node {
   NodeKind Kind; // 节点种类
   int Val;       // 值
   Node *LHS;     // 左子树
-  Node *RHS;     // 右子树
+  union{
+    Node *RHS;     // 右子树
+    Node *next;    // 右兄弟
+  };
 };
 
 //语法分析器结构体

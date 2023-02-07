@@ -11,13 +11,19 @@ static void push(void) {
 
 static void pop(char *reg) {
   printf("    # 将 栈顶 栈入 %s 寄存器\n", reg);
-  printf("    ld %s, 0(sp)\n",reg);
+  printf("    ld %s, 0(sp)\n", reg);
   printf("    addi sp, sp, 8\n");
   Depth--;
 }
 
 static void genExpr(Node *node) {
   switch (node->Kind) {
+  case EXPR_STMT:
+    genExpr(node->LHS);
+    if (node->next) {
+      genExpr(node->next);
+    }
+    return;
   case NUM:
     printf("    # 将常数值写入 a0\n");
     printf("    li a0, %d\n", node->Val);
@@ -94,8 +100,8 @@ Codegener *newCodegener(Node *astRoot) {
 }
 
 void Codegen(Codegener *codegener) {
-    printf("    .globl main\n");
-    printf("main:\n");
-    genExpr(codegener->astRoot);
-    printf("    ret\n");
+  printf("    .globl main\n");
+  printf("main:\n");
+  genExpr(codegener->astRoot);
+  printf("    ret\n");
 }

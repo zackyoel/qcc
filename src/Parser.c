@@ -1,6 +1,11 @@
 #include "Compiler.h"
 
+// Rest: 分析后剩余词法单元队列指针存放位置
+// Token: 要分析的词法单元
 
+// program = stmt*
+// stmt = exprStmt
+// exprStmt = expr ";"
 // expr = equality
 // equality = relational ("==" relational | "!=" relational)*
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
@@ -9,6 +14,9 @@
 // mul = unary ("*" unary | "/" unary | "%" unary)*
 // unary = ("+" | "-"| "*" | "&") unary | primary
 // primary = "(" expr ")" | num
+
+static Node *stmt(Token **Rest, Token *Tok);
+static Node *exprStmt(Token **Rest, Token *Tok);
 static Node *expr(Token **Rest, Token *Tok);
 static Node *equality(Token **Rest, Token *Tok);
 static Node *relational(Token **Rest, Token *Tok);
@@ -67,6 +75,18 @@ static Node *newNum(long value) {
   Node *node = calloc(1, sizeof(Node));
   node->Kind = NUM;
   node->Val = value;
+  return node;
+}
+
+// 解析语句
+// stmt = exprStmt
+static Node *stmt(Token **Rest, Token *Tok) { return exprStmt(Rest, Tok); }
+
+// 解析表达式语句
+// exprStmt = expr ";"
+static Node *exprStmt(Token **Rest, Token *Tok) {
+  Node *node = newUnary(EXPR_STMT, expr(&Tok, Tok));
+  *Rest = skip(Tok, ";");
   return node;
 }
 
@@ -187,15 +207,15 @@ static Node *unary(Token **Rest, Token *Tok) {
   if (equal(Tok, "-")) {
     return newUnary(NEG, unary(Rest, Tok->nextTok));
   }
-  
+
   // "&" unary
-  if (equal(Tok,"&")) {
-    return newUnary(ADDR , unary(Rest, Tok->nextTok));
+  if (equal(Tok, "&")) {
+    return newUnary(ADDR, unary(Rest, Tok->nextTok));
   }
 
   // "*" unary
-  if (equal(Tok,"*")) {
-    return newUnary(DEADDR, unary(Rest,Tok->nextTok));
+  if (equal(Tok, "*")) {
+    return newUnary(DEADDR, unary(Rest, Tok->nextTok));
   }
 
   // primary
@@ -228,10 +248,12 @@ Parser *newParser(Token *tokList) {
 
 Node *parse(Parser *parser) {
   Token *Tok = parser->tokList;
-  parser->astRoot = expr(&Tok, Tok);
+  parser->astRoot = calloc(1, sizeof(Node));
 
-  if (Tok->kind != EOF_FLAG) {
-    errorTok(Tok, "extra token");
+  for (Node *curNode = parser->astRoot; Tok->kind; curNode = curNode->next) {
+    curNode->next = stmt(&Tok, Tok);
   }
-  return parser->astRoot;
+  
+  parser->astRoot = parser->astRoot->next;
+  return parser->astRoot->next;
 }
