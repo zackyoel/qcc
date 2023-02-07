@@ -1,23 +1,27 @@
 #include "Compiler.h"
 
+static Obj *LOCALOBJS;
+
 // Rest: 分析后剩余词法单元队列指针存放位置
 // Token: 要分析的词法单元
 
 // program = stmt*
 // stmt = exprStmt
 // exprStmt = expr ";"
-// expr = equality
+// expr = assign
+// assign = equality ( = assign )?
 // equality = relational ("==" relational | "!=" relational)*
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // shift = add ("<<" add | ">>" add)*
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary | "%" unary)*
 // unary = ("+" | "-"| "*" | "&") unary | primary
-// primary = "(" expr ")" | num
+// primary = "(" expr ")" | num | id
 
 static Node *stmt(Token **Rest, Token *Tok);
 static Node *exprStmt(Token **Rest, Token *Tok);
 static Node *expr(Token **Rest, Token *Tok);
+static Node *assign(Token **Rest, Token *Tok);
 static Node *equality(Token **Rest, Token *Tok);
 static Node *relational(Token **Rest, Token *Tok);
 static Node *add(Token **Rest, Token *Tok);
@@ -44,7 +48,7 @@ static Node *newNode(NodeKind kind) {
  * @param LHS 子节点指针
  * @return Node* 新单叉树指针
  */
-static Node *newUnary(NodeKind kind, Node *LHS) {
+static Node *newUnaryNode(NodeKind kind, Node *LHS) {
   Node *node = newNode(kind);
   node->LHS = LHS;
   return node;
@@ -58,7 +62,7 @@ static Node *newUnary(NodeKind kind, Node *LHS) {
  * @param RHS 右子树指针
  * @return Node* 新节点指针
  */
-static Node *newBinary(NodeKind kind, Node *LHS, Node *RHS) {
+static Node *newBinaryNode(NodeKind kind, Node *LHS, Node *RHS) {
   Node *node = newNode(kind);
   node->LHS = LHS;
   node->RHS = RHS;
@@ -71,11 +75,51 @@ static Node *newBinary(NodeKind kind, Node *LHS, Node *RHS) {
  * @param value 数字值
  * @return Node* 新节点指针
  */
-static Node *newNum(long value) {
+static Node *newNumNode(long value) {
   Node *node = calloc(1, sizeof(Node));
   node->Kind = NUM;
   node->Val = value;
   return node;
+}
+
+/**
+ * @brief 新建变量节点
+ *
+ * @param obj 变量结构体指针
+ * @return Node* 新变量节点指针
+ */
+
+static Node *newVarNode(Obj *obj) {
+  Node *node = newNode(VAR);
+  node->Var = obj;
+  return node;
+}
+
+// 在链表中新增一个变量
+static Obj *newLVar(char *Name) {
+  Obj *var = calloc(1, sizeof(Obj));
+  var->Name = Name;
+  // 将变量插入头部
+  var->Next = LOCALOBJS;
+  LOCALOBJS = var;
+  return var;
+}
+
+/**
+ * @brief 从Objs队列中查找与Tok字面量相同的对象，没找到则返回 NULL
+ *
+ * @param Objs 变量队列
+ * @param Tok  查找词法单元
+ * @return Obj* 变量指针
+ */
+static Obj *findVar(const Token *Tok) {
+  for (Obj *var = LOCALOBJS; var; var = var->Next) {
+    if (strlen(var->Name) == Tok->len &&
+        !strncmp(var->Name, Tok->text, Tok->len)) {
+      return var;
+    }
+  }
+  return NULL;
 }
 
 // 解析语句
@@ -85,16 +129,30 @@ static Node *stmt(Token **Rest, Token *Tok) { return exprStmt(Rest, Tok); }
 // 解析表达式语句
 // exprStmt = expr ";"
 static Node *exprStmt(Token **Rest, Token *Tok) {
-  Node *node = newUnary(EXPR_STMT, expr(&Tok, Tok));
+  Node *node = newUnaryNode(EXPR_STMT, expr(&Tok, Tok));
   *Rest = skip(Tok, ";");
   return node;
 }
 
 // 解析表达式
-// expr = equality
+// expr = assign
 static Node *expr(Token **Rest, Token *Tok) {
+  // assign
+  return assign(Rest, Tok);
+}
+
+// 解析赋值表达式
+static Node *assign(Token **Rest, Token *Tok) {
   // equality
-  return equality(Rest, Tok);
+  Node *node = equality(&Tok, Tok);
+  while (true) {
+    if (equal(Tok, "=")) {
+      node = newBinaryNode(ASSIGN, node, assign(&Tok, Tok->nextTok));
+      continue;
+    }
+    *Rest = Tok;
+    return node;
+  }
 }
 
 // 解析相等性
@@ -106,12 +164,12 @@ static Node *equality(Token **Rest, Token *Tok) {
   while (true) {
     // "==" relational
     if (equal(Tok, "==")) {
-      node = newBinary(EQ, node, relational(&Tok, Tok->nextTok));
+      node = newBinaryNode(EQ, node, relational(&Tok, Tok->nextTok));
       continue;
     }
     // "!=" relational
     if (equal(Tok, "!=")) {
-      node = newBinary(NE, node, relational(&Tok, Tok->nextTok));
+      node = newBinaryNode(NE, node, relational(&Tok, Tok->nextTok));
       continue;
     }
     *Rest = Tok;
@@ -127,22 +185,22 @@ static Node *relational(Token **Rest, Token *Tok) {
   while (true) {
     // "<" add
     if (equal(Tok, "<")) {
-      node = newBinary(LT, node, add(&Tok, Tok->nextTok));
+      node = newBinaryNode(LT, node, add(&Tok, Tok->nextTok));
       continue;
     }
     // "<=" add
     if (equal(Tok, "<=")) {
-      node = newBinary(LT, node, add(&Tok, Tok->nextTok));
+      node = newBinaryNode(LT, node, add(&Tok, Tok->nextTok));
       continue;
     }
     // ">" add
     if (equal(Tok, ">")) {
-      node = newBinary(GT, node, add(&Tok, Tok->nextTok));
+      node = newBinaryNode(GT, node, add(&Tok, Tok->nextTok));
       continue;
     }
     // ">=" add
     if (equal(Tok, ">=")) {
-      node = newBinary(GE, node, add(&Tok, Tok->nextTok));
+      node = newBinaryNode(GE, node, add(&Tok, Tok->nextTok));
       continue;
     }
     *Rest = Tok;
@@ -159,12 +217,12 @@ static Node *add(Token **Rest, Token *Tok) {
   while (true) {
     // "+" mul
     if (equal(Tok, "+")) {
-      node = newBinary(ADD, node, mul(&Tok, Tok->nextTok));
+      node = newBinaryNode(ADD, node, mul(&Tok, Tok->nextTok));
       continue;
     }
     // "-" mul
     if (equal(Tok, "-")) {
-      node = newBinary(SUB, node, mul(&Tok, Tok->nextTok));
+      node = newBinaryNode(SUB, node, mul(&Tok, Tok->nextTok));
       continue;
     }
     *Rest = Tok;
@@ -181,12 +239,12 @@ static Node *mul(Token **Rest, Token *Tok) {
   while (true) {
     // "*" unary
     if (equal(Tok, "*")) {
-      node = newBinary(MUL, node, unary(&Tok, Tok->nextTok));
+      node = newBinaryNode(MUL, node, unary(&Tok, Tok->nextTok));
       continue;
     }
     // "/" unary
     if (equal(Tok, "/")) {
-      node = newBinary(DIV, node, unary(&Tok, Tok->nextTok));
+      node = newBinaryNode(DIV, node, unary(&Tok, Tok->nextTok));
       continue;
     }
     *Rest = Tok;
@@ -205,17 +263,17 @@ static Node *unary(Token **Rest, Token *Tok) {
 
   // "-" unary
   if (equal(Tok, "-")) {
-    return newUnary(NEG, unary(Rest, Tok->nextTok));
+    return newUnaryNode(NEG, unary(Rest, Tok->nextTok));
   }
 
   // "&" unary
   if (equal(Tok, "&")) {
-    return newUnary(ADDR, unary(Rest, Tok->nextTok));
+    return newUnaryNode(ADDR, unary(Rest, Tok->nextTok));
   }
 
   // "*" unary
   if (equal(Tok, "*")) {
-    return newUnary(DEADDR, unary(Rest, Tok->nextTok));
+    return newUnaryNode(DEADDR, unary(Rest, Tok->nextTok));
   }
 
   // primary
@@ -231,13 +289,41 @@ static Node *primary(Token **Rest, Token *Tok) {
   }
 
   if (Tok->kind == VAL_INTEGER) {
-    Node *node = newNum(Tok->intVal);
+    Node *node = newNumNode(Tok->intVal);
     *Rest = Tok->nextTok;
     return node;
   }
 
+  if (Tok->kind == ID) {
+    Obj *var = findVar(Tok);
+    if (!var)
+      var = newLVar(strndup(Tok->text, Tok->len));
+    *Rest = Tok->nextTok;
+    return newVarNode(var);
+  }
+
   errorTok(Tok, "expected an expression");
   return NULL;
+}
+
+// 对齐到Align的整数倍
+static int alignTo(int N, int Align) {
+  // (0,Align]返回Align
+  return (N + Align - 1) / Align * Align;
+}
+
+// 根据变量的链表计算出偏移量
+static void assignLVarOffsets(Function *Prog) {
+  int Offset = 0;
+  // 读取所有变量
+  for (Obj *Var = Prog->localObjs; Var; Var = Var->Next) {
+    // 每个变量分配8字节
+    Offset += 8;
+    // 为每个变量赋一个偏移量，或者说是栈中地址
+    Var->Offset = -Offset;
+  }
+  // 将栈对齐到16字节
+  Prog->stackSize = alignTo(Offset, 16);
 }
 
 Parser *newParser(Token *tokList) {
@@ -246,14 +332,22 @@ Parser *newParser(Token *tokList) {
   return paser;
 }
 
-Node *parse(Parser *parser) {
-  Token *Tok = parser->tokList;
-  parser->astRoot = calloc(1, sizeof(Node));
+Function *parse(Parser *parser) {
 
-  for (Node *curNode = parser->astRoot; Tok->kind; curNode = curNode->next) {
-    curNode->next = stmt(&Tok, Tok);
+  Function *prog = calloc(1, sizeof(Function));
+  prog->Body = calloc(1, sizeof(Node));
+  Node *curNode = prog->Body;
+  Token *curTok =parser->tokList;
+
+  while(curTok->kind) {
+    curNode->Next = exprStmt(&curTok, curTok);
+    curNode = curNode->Next;
   }
-  
-  parser->astRoot = parser->astRoot->next;
-  return parser->astRoot->next;
+
+  prog->Body =prog->Body->Next;
+  prog->localObjs = LOCALOBJS;
+  assignLVarOffsets(prog);
+  parser->Func = prog;
+
+  return parser->Func;
 }

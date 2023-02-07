@@ -1,8 +1,5 @@
 #include "Compiler.h"
-#include <assert.h>
 #include <ctype.h>
-#include <stdlib.h>
-#include <string.h>
 
 // static为仅限本文件内可用，类似于C++类的private声明
 
@@ -102,18 +99,7 @@ static unsigned int punctLen(const char *str) {
   return ispunct(*str) ? 1 : 0;
 }
 
-/**
- * @brief 判断字符串首字符符合变量要求 [a-zA-Z_]
- *
- * @param str 待检测字符串
- * @return true 可以为变量首字符
- * @return false 不能为变量首字符
- */
-static bool isVarStart(const char *str) {
-  if (isalpha(*str) || startWith(str, "_"))
-    return true;
-  return false;
-}
+
 
 /**
  * @brief 获取变量名长度 [a-zA-Z_][a-zA-Z0-9_]*
@@ -122,13 +108,14 @@ static bool isVarStart(const char *str) {
  * @return unsigned int 能形成的最长字符串长度
  */
 static unsigned int varLen(const char *str) {
-  if (isVarStart(str)) {
-    int len = 1;
+  // [a-zA-Z_]
+  if (isalpha(*str)||*str=='_') {
     const char *tempChar = str;
-    while (isalnum(*tempChar) || startWith(tempChar, "_")) {
-      len++;
+    // [a-zA-Z0-9_]*
+    while (isalnum(*tempChar) || *tempChar=='_') {
+      tempChar++;
     }
-    return len;
+    return tempChar - str;
   }
   return 0;
 }
@@ -234,6 +221,7 @@ Token *analysis(Lexer *lexer) {
       CurTok->nextTok =
           newToken(ID, lexer->curReadPtr, lexer->fPath, lexer->curLinePtr,
                    lexer->curRowNum, lexer->curColNum);
+      CurTok=CurTok->nextTok;
       CurTok->len = VarLen;
       //更新词法分析器读取位置
       lexer->curColNum += CurTok->len;

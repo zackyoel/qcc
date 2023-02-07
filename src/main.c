@@ -17,11 +17,11 @@ int main(int args, char **argv) {
 
   //语法分析
   Parser *parser = newParser(toklist);
-  Node *astRoot = parse(parser);
+  Function *func = parse(parser);
 
   //目标代码生成
-  Codegener* codegener=newCodegener(astRoot);
-  Codegen(codegener);
+  Codegener* codegener=newCodegener(func);
+  codegen(codegener);
 
   return 0;
 }

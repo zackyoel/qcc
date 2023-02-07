@@ -165,8 +165,9 @@ Token *analysis(Lexer *lexer);
 
 // AST节点种类
 typedef enum {
-  NUM, // 常数
-  EXPR_STMT,  // expr ";"
+  EXPR_STMT, // expr ";"
+  NUM,       // 常数
+  VAR,       // 对象变量
 
   //运算符节点 优先级：低->高
   COMMA, // , 逗号
@@ -226,18 +227,37 @@ typedef enum {
   ARROW,       // -> 箭头
   DOT,         // .  点
 
-
 } NodeKind;
 
 // AST语法树节点结构体
 typedef struct Node Node;
+// 对象结构体
+typedef struct Obj Obj;
+// 函数结构体
+typedef struct Function Function;
+
+struct Obj {
+  Obj *Next;   // 下个对象名
+  char *Name;  // 对象名
+  long Offset; // 相对 fp 的偏移量
+};
+
+struct Function {
+  Node *Body;     // 函数体
+  Obj *localObjs; // 函数局部变量
+  int stackSize;  // 函数栈大小
+};
+
 struct Node {
   NodeKind Kind; // 节点种类
-  int Val;       // 值
-  Node *LHS;     // 左子树
-  union{
-    Node *RHS;     // 右子树
-    Node *next;    // 右兄弟
+  union {
+    int Val;   // 值
+    Node *LHS; // 左子树
+    Obj *Var;  //变量
+  };
+  union {
+    Node *RHS;  // 右子树
+    Node *Next; // 右兄弟
   };
 };
 
@@ -245,7 +265,7 @@ struct Node {
 typedef struct Parser Parser;
 struct Parser {
   Token *tokList;
-  Node *astRoot;
+  Function *Func;
 };
 
 /**
@@ -260,19 +280,19 @@ Parser *newParser(Token *tokList);
  * @brief 为语法分析器进行语法分析，返回语法分析树
  *
  * @param parser 待分析语法分析器
- * @return Node* 语法分析树根节点
+ * @return Function* 函数结构体指针
  */
-Node *parse(Parser *parser);
+Function *parse(Parser *parser);
 
 /************************Codegener************************/
 typedef struct Codegener Codegener;
 
-struct Codegener{
+struct Codegener {
   int stackDepth; //压栈深度
-  Node* astRoot;  //语法分析树根节点
+  Function *func;  //语法分析树根节点
 };
-Codegener* newCodegener(Node* astRoot);
-void Codegen(Codegener* codegener);
+Codegener *newCodegener(Function *func);
+void codegen(Codegener *codegener);
 
 /************************Error************************/
 //基本错误处理
