@@ -151,7 +151,8 @@ Lexer *newLexer(const char *fpath) {
   Lexer *lexer = calloc(1, sizeof(Lexer));
 
   // 初始化词法分析器参数
-  lexer->fText = readFile(fpath);
+  //lexer->fText = readFile(fpath); // 测试时请注释此条
+  lexer->fText = fpath;             // 测试时请使用此条
   lexer->fPath = fpath;
   lexer->tokListHead = calloc(1, sizeof(Token));
   lexer->curRowNum = 1;
